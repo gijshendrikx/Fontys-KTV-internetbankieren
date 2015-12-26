@@ -1,3 +1,24 @@
+
+/Balie/build/
+/Balie/dist/
+/Balie/nbproject/private/
+
+/Bank/build/
+/Bank/dist/
+/Bank/nbproject/private/
+
+/CentraleBank/build/
+/CentraleBank/dist/
+/CentraleBank/nbproject/private/
+
+/GUI/build/
+/GUI/dist/
+/GUI/nbproject/private/
+
+/Startup/build/
+/Startup/dist/
+/Startup/nbproject/private/
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
