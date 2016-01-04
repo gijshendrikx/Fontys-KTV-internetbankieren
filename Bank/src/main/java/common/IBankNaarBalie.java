@@ -12,7 +12,8 @@ public interface IBankNaarBalie extends Remote {
      * @param naam naam van de gebruiker
      * @param woonplaats Nederlandse woonplaats van de gebruiker
      * @return klantnummer van de geregistreerde gebruiker
-     * @throws RemoteException indien woonplaats niet geldig is
+     * @throws RemoteException indien klant al geregistreerd is onder dezelfde
+     * naam en woonplaats.
      */
     int registreerKlant(String naam, String woonplaats) throws RemoteException;
 
@@ -39,7 +40,7 @@ public interface IBankNaarBalie extends Remote {
      * @param rekeningnummer rekeningnummer waarvan transacties getoond worden
      * @return collectie met bij rekening behorende Transacties
      * @throws RemoteException indien klantnummer of rekeningnummer niet bij de
-     * bank bekend is
+     * bank bekend is of een onjuiste combinatie is.
      */
     Collection<Transactie> getTransacties(int klantnummer, String rekeningnummer) throws RemoteException;
 
@@ -53,7 +54,9 @@ public interface IBankNaarBalie extends Remote {
      * @param omschr een door de gebruiker opgegeven omschrijving
      * @return true indien afboeken op eigen rekening gelukt, anders false
      * @throws RemoteException indien klantnummer of rekeningVan niet bij de
-     * bank bekend is of bedrag niet geldig is
+     * bank bekend is of geen juiste combinatie is, bedrag niet geldig is, 
+     * rekeningen van/naar gelijk zijn, rekeningNaar een interne rekening is 
+     * maar onbekend is, het saldo niet toereikend is.
      */
     boolean doeTransactie(int klantnummer, String rekeningVan, String rekeningNaar, int bedrag, String omschr) throws RemoteException;
 

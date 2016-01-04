@@ -78,5 +78,13 @@ public interface IBankNaarBalie extends Remote {
      * @throws java.rmi.RemoteException
      */
     public void deregistreerBalie(String bankCode, IBalieObserver balie) throws RemoteException;
+    
+//    /**
+//     *
+//     * @param obj
+//     * @return
+//     */
+//    @Override
+//    public boolean equals(Object obj);
 
 }

@@ -1,4 +1,4 @@
-package bank.catagory;
+package bank.category;
 
 public interface BankNaarBalieCat {
 	/* category marker */

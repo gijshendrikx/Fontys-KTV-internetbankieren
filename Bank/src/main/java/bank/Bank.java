@@ -1,5 +1,5 @@
 package bank;
- 
+
 import common.IBalieObserver;
 import common.IBankNaarBalie;
 import common.IBankNaarCentrale;
@@ -25,6 +25,7 @@ public class Bank {
     private final String naam;
     private final String bankCode;
     private final IDatabaseConnectie database;
+
     private final LogWindow logger;
     private Timer scheduler;
 
@@ -36,6 +37,13 @@ public class Bank {
     private ICentraleNaarBank centraleNaarBank;
     private IBalieObserver balieObserver;
 
+    /**
+     *
+     * @param n naam van bank
+     * @param b bankcode van bank
+     * @param port poort waarop bank bereikbaar is
+     * @throws RemoteException
+     */
     public Bank(String n, String b, int port) throws RemoteException {
         naam = n;
         bankCode = b;
@@ -45,6 +53,18 @@ public class Bank {
         logger = new LogWindow(naam, bankCode);
         connectCentraleBank(10000);
         registreer(port);
+    }
+
+    public IBankNaarCentrale getBankNaarCentrale() {
+        return bankNaarCentrale;
+    }
+
+    public IBankNaarBalie getBankNaarBalie() {
+        return bankNaarBalie;
+    }
+    
+    public void setCentraleBank(ICentraleNaarBank cb){
+        this.centraleNaarBank = cb;
     }
 
     private void connectCentraleBank(int reconnectMillis) {
@@ -71,7 +91,15 @@ public class Bank {
         }).start();
     }
 
-    private void registreer(int port) {
+    /**
+     * Registreert het IBankNaarBalie object op een aangegeven poort.
+     *
+     * <br>Pre: poort is nog niet in gebruik.
+     * <br>Post: IBankNaarBalie is op poort geregistreerd.
+     *
+     * @param port poort waarop IBankNaarBalie object op geregistreerd wordt
+     */
+    public void registreer(int port) {
         try {
             Registry registry = java.rmi.registry.LocateRegistry.createRegistry(port);
             registry.rebind("BankNaarBalie", bankNaarBalie);
@@ -360,6 +388,26 @@ public class Bank {
             }
         }
 
+//        @Override
+//        public boolean equals(Object obj) {
+//            if (this == obj) {
+//                return true;
+//            }
+//            if ((obj == null) || obj instanceof BankNaarBalie ) {
+//                return false;
+//            }
+//            
+//            //BankNaarBalie bnb = (BankNaarBalie) obj;
+//            //geen eigenschappen bekend
+//            return true;       
+//        }
+//
+//        @Override
+//        public int hashCode() {
+//            int hash = 7;
+//            hash = hash * 31;
+//            return hash;
+//        }
     }
 
     public static void main(String[] args) {
