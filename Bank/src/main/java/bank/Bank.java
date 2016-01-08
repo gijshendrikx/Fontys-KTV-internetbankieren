@@ -54,6 +54,29 @@ public class Bank {
         connectCentraleBank(10000);
         registreer(port);
     }
+    
+    /**
+     * Creates Bank object with Mock components for testing purposes
+     * @param n name of bank
+     * @param b code of bank
+     * @param port port on which bank will be registered
+     * @param mockCentrale CentraleBank mock
+     * @param mockDatabase Database mock
+     * @param balieObsMock BalieObserver mock
+     * @throws RemoteException 
+     */
+    public Bank(String n, String b, int port, ICentraleNaarBank mockCentrale, 
+            IDatabaseConnectie mockDatabase, IBalieObserver balieObsMock) throws RemoteException {
+        naam = n;
+        bankCode = b;
+        bankNaarCentrale = new BankNaarCentrale();
+        bankNaarBalie = new BankNaarBalie();
+        logger = new LogWindow(naam, bankCode);
+        centraleNaarBank = mockCentrale;
+        database = mockDatabase;
+        balieObserver = balieObsMock;
+        registreer(port);
+    }
 
     public IBankNaarCentrale getBankNaarCentrale() {
         return bankNaarCentrale;
@@ -387,27 +410,6 @@ public class Bank {
                 logger.log("Balie " + bankCode + " heeft zich afgemeld");
             }
         }
-
-//        @Override
-//        public boolean equals(Object obj) {
-//            if (this == obj) {
-//                return true;
-//            }
-//            if ((obj == null) || obj instanceof BankNaarBalie ) {
-//                return false;
-//            }
-//            
-//            //BankNaarBalie bnb = (BankNaarBalie) obj;
-//            //geen eigenschappen bekend
-//            return true;       
-//        }
-//
-//        @Override
-//        public int hashCode() {
-//            int hash = 7;
-//            hash = hash * 31;
-//            return hash;
-//        }
     }
 
     public static void main(String[] args) {

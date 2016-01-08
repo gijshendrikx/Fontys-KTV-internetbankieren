@@ -6,28 +6,41 @@
 package bank.test;
 
 import bank.Bank;
+import bank.Klant;
+import bank.Rekening;
 import bank.category.BankCat;
 import bank.category.BankNaarBalieCat;
+import bank.category.BankNaarCentraleCat;
+import common.IBalieObserver;
 import common.IBankNaarBalie;
 import common.IBankNaarCentrale;
 import common.ICentraleNaarBank;
 import common.Transactie;
+import database.IDatabaseConnectie;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.*;
 import static org.junit.Assert.fail;
 import org.junit.experimental.categories.Category;
 import org.easymock.*;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.mock;
 import static org.easymock.EasyMock.replay;
+import static org.easymock.EasyMock.reset;
 import static org.easymock.EasyMock.verify;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  *
@@ -38,6 +51,9 @@ public class BankTest {
     private IBankNaarBalie bankNaarBalie = null;
     private IBankNaarCentrale bankNaarCentrale = null;
     private Bank bank = null;
+    private final ICentraleNaarBank centraleBank = mock(ICentraleNaarBank.class);
+    private final IDatabaseConnectie database = mock(IDatabaseConnectie.class);
+    private final IBalieObserver balie = mock(IBalieObserver.class);
 
     public BankTest() {
     }
@@ -53,7 +69,8 @@ public class BankTest {
     @Before
     public void setUp() {
         try {
-            bank = new Bank("Rabobank", "Rabo", 1000);
+            bank = new Bank("Rabobank", "RABO", 1000,
+                    centraleBank, database, balie);
             bankNaarBalie = bank.getBankNaarBalie();
             bankNaarCentrale = bank.getBankNaarCentrale();
         } catch (RemoteException ex) {
@@ -67,65 +84,30 @@ public class BankTest {
     public void tearDown() {
     }
 
-    
-    @Rule
-    public EasyMockRule rule = new EasyMockRule(this);
-
-    @Mock
-    private final ICentraleNaarBank centraleBank = mock(ICentraleNaarBank.class); // 1
-    
-    @Test
-    public void testSetScheduler() {
-        try{
-            bank.setCentraleBank(centraleBank);
-            Transactie t = new Transactie("1",new Date(),"INGB00000001","ABNA1234","test",100);
-            
-            
-            centraleBank.verwerk(t); //3
-            replay(centraleBank); //4
-            int klantnr = bankNaarBalie.registreerKlant("Gijs", "Tegelen");
-            String rek = bankNaarBalie.openRekening(klantnr);
-            bankNaarBalie.doeTransactie(klantnr, rek, "TEST123", 100, "test");
-            Thread.sleep(20000);
-            verify(centraleBank);
-            
-//        classUnderTest.addDocument("New Document", "content"); // 5
-//        verifyAll(); // 6
-        } catch (RemoteException | InterruptedException ex){
-            fail("Unexpected exception while testing scheduler");
-        }
-    }
-
-    /**
-     * Registreert het IBankNaarBalie object op een aangegeven poort.
-     * 
-     * <br>Pre: poort is nog niet in gebruik.
-     * <br>Post: IBankNaarBalie is op poort geregistreerd.
-     * 
-     * @param port poort waarop IBankNaarBalie object op geregistreerd wordt
-     */
-    //private void registreer(int port) {
+    //SETSCHEDULER???
     
     /**
      * Test of registreer method, of class Bank
      *
-     * <br>Check that creation of bank calls registreer method and 
-     * registers IBankNaarBalie object on given port.
+     * <br>Check that registreer method registers IBankNaarBalie object on given
+     * port.
      */
     @Test
     @Category(BankCat.class)
-    public void testRegistreer(){
-        int port = 9999;
-        try{
-            Bank bankABN = new Bank("ABN Amro","ABNA",port);
+    public void testRegistreer() {
+        try {
+            int port = 9999;
+            bank.registreer(port);
             Registry registry = LocateRegistry.getRegistry("127.0.0.1", port);
             IBankNaarBalie bnb = (IBankNaarBalie) registry.lookup("BankNaarBalie");
-            Assert.assertEquals(bankABN.getBankNaarBalie(), bnb);
-        } catch (RemoteException | NotBoundException ex){
-            fail("IBankNaarBalie not registered");
+            assertEquals(bankNaarBalie.hashCode(), bnb.hashCode());
+        } catch (RemoteException ex) {
+            fail("Remote exception: " + ex.getMessage());
+        } catch (NotBoundException ex) {
+            fail("BankNaarBalie not registered");
         }
     }
-        
+
     /**
      * Test of registreerKlant method, of private class BankNaarBalie.
      *
@@ -138,18 +120,29 @@ public class BankTest {
     public void testRegistreerKlant() {
         //register customer
         try {
-            bankNaarBalie.registreerKlant("henk", "belfeld");
+            expect(database.getKlant("henk", "venlo")).andReturn(null);
+            expect(database.insertKlant("henk", "venlo"))
+                    .andReturn(new Klant(1234, "henk", "venlo"));
+
+            replay(database);
+            bank.getBankNaarBalie().registreerKlant("henk", "venlo");
+            verify(database);
+            reset(database);
         } catch (RemoteException ex) {
             fail("Unexpected exception thrown when creating a new customer");
         }
 
         //register customer already known in the system
         try {
-            bankNaarBalie.registreerKlant("henk", "belfeld");
+            EasyMock.expect(database.getKlant("henk", "venlo"))
+                    .andReturn(new Klant(1234, "henk", "venlo"));
+            replay(database);
+            bankNaarBalie.registreerKlant("henk", "venlo");
             fail("Customer registered with an"
                     + " already existing name/city combination");
         } catch (RemoteException ex) {
-            Assert.assertEquals(
+            verify(database);
+            assertEquals(
                     "Er is al een klant met deze naam en woonplaats geregistreerd",
                     ex.getMessage());
         }
@@ -167,18 +160,29 @@ public class BankTest {
     public void testOpenRekening() {
         //register account correctly
         try {
-            int klantnr = bankNaarBalie.registreerKlant("henk", "belfeld");
-            bankNaarBalie.openRekening(klantnr);
+            Klant klant = new Klant(1234, "henk", "venlo");
+            expect(database.getKlant(1234))
+                    .andReturn(klant);
+            expect(database.insertRekening(klant))
+                    .andReturn(new Rekening(10000, "RABO1234", klant.getKlantNummer()));
+            replay(database);
+            String rek = bankNaarBalie.openRekening(1234);
+            assertEquals("RABO1234", rek);
+            verify(database);
+            reset(database);
         } catch (RemoteException ex) {
             fail("Unexpected exception thrown when creating a new account");
         }
 
         //register account with invalid customer number
         try {
-            bankNaarBalie.openRekening(Integer.MAX_VALUE);
+            expect(database.getKlant(9999)).andReturn(null);
+            replay(database);
+            bankNaarBalie.openRekening(9999);
             fail("Account opened with an invalid customer number");
         } catch (RemoteException ex) {
-            Assert.assertEquals("Klant is onbekend", ex.getMessage());
+            verify(database);
+            assertEquals("Klant is onbekend", ex.getMessage());
         }
     }
 
@@ -194,19 +198,29 @@ public class BankTest {
     public void testGetSaldi() {
         //get balance correctly
         try {
-            int klantnr = bankNaarBalie.registreerKlant("henk", "belfeld");
-            String rekening = bankNaarBalie.openRekening(klantnr);
-            Map<String, Integer> saldi = bankNaarBalie.getSaldi(klantnr);
-            Assert.assertEquals(0, (int) saldi.get(rekening));
+            expect(database.getKlant(1234))
+                    .andReturn(new Klant(1234, "henk", "venlo"));
+            expect(database.getRekeningen(1234))
+                    .andReturn(new ArrayList<>(Arrays.asList(
+                            new Rekening(100, "RABO1", 1234),
+                            new Rekening(100, "RABO2", 1234))));
+            replay(database);
+            Map<String, Integer> saldi = bankNaarBalie.getSaldi(1234);
+            Assert.assertEquals(0, (int) saldi.get("RABO2"));
+            verify(database);
+            reset(database);
         } catch (RemoteException ex) {
             fail("Unexpected exception thrown when getting account balance");
         }
 
         //get balance with an invalid customer number
         try {
-            Map<String, Integer> saldi = bankNaarBalie.getSaldi(Integer.MAX_VALUE);
+            expect(database.getKlant(1234)).andReturn(null);
+            replay(database);
+            bankNaarBalie.getSaldi(1234);
             fail("Received current balance with an invalid customer number");
         } catch (RemoteException ex) {
+            verify(database);
             Assert.assertEquals("Klant is onbekend", ex.getMessage());
         }
     }
@@ -214,8 +228,9 @@ public class BankTest {
     /**
      * Test of getTransacties method, of private class BankNaarBalie.
      *
-     * <br>Check that an unknown customer number will throw a RemoteException.
      * <br>Check that an unknown account number will throw a RemoteException.
+     * <br>Check that an invalid customer / account combination will throw a
+     * RemoteException.
      * <br>Check that a valid customer number / account number combination will
      * return a collection of all transactions on that account.
      */
@@ -224,44 +239,42 @@ public class BankTest {
     public void testGetTransacties() {
         //get transactions correctly
         try {
-            int klantnr = bankNaarBalie.registreerKlant("henk", "belfeld");
-            String rekening = bankNaarBalie.openRekening(klantnr);
-            Collection<Transactie> transacties
-                    = bankNaarBalie.getTransacties(klantnr, rekening);
-        } catch (RemoteException ex) {
+            Transactie t = new Transactie("1", new Date(), "RABO1", "INGB1", "test", 100);
+            expect(database.getRekening("RABO1"))
+                    .andReturn(new Rekening(10000, "RABO1", 1234));
+            expect(database.getTransacties("RABO1"))
+                    .andReturn(new ArrayList<>(Arrays.asList(t)));
+            replay(database);
+            Collection transacties = bankNaarBalie.getTransacties(1234, "RABO1");
+            assertEquals(t, transacties.iterator().next());
+            verify(database);
+            reset(database);
+        } catch (RemoteException | NoSuchElementException ex) {
             fail("Unexpected exception thrown when getting transactions");
-        }
-
-        //get transactions with an invalid customernumber
-        try {
-            int klantnr = bankNaarBalie.registreerKlant("bert", "belfeld");
-            String rekening = bankNaarBalie.openRekening(klantnr);
-            Collection<Transactie> transacties
-                    = bankNaarBalie.getTransacties(Integer.MAX_VALUE, rekening);
-            fail("transactions received with an invalid customer number");
-        } catch (RemoteException ex) {
-            Assert.assertEquals("Rekening is onbekend", ex.getMessage());
         }
 
         //get transactions with an invalid accountnumber
         try {
-            int klantnr = bankNaarBalie.registreerKlant("wil", "belfeld");
-            Collection<Transactie> transacties
-                    = bankNaarBalie.getTransacties(klantnr, "abc");
+            expect(database.getRekening("RABO1"))
+                    .andReturn(null);
+            replay(database);
+            bankNaarBalie.getTransacties(1234, "RABO1");
             fail("transactions received with an invalid account number");
         } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("Rekening is onbekend", ex.getMessage());
         }
 
-        //get transactions with an invalid account / customer combination
+        //get transactions with an invalid customer/acount combination
         try {
-            int klantnr1 = bankNaarBalie.registreerKlant("jochem", "belfeld");
-            int klantnr2 = bankNaarBalie.registreerKlant("hans", "belfeld");
-            String rekening = bankNaarBalie.openRekening(klantnr1);
-            Collection<Transactie> transacties
-                    = bankNaarBalie.getTransacties(klantnr2, rekening);
-            fail("transactions received with an invalid account / customer combination");
+            expect(database.getRekening("RABO1"))
+                    .andReturn(new Rekening(100, "RABO1", 9999));
+            replay(database);
+            bankNaarBalie.getTransacties(1234, "RABO1");
+            fail("transactions received with an invalid customer number");
         } catch (RemoteException ex) {
+            verify(database);
             Assert.assertEquals("Rekening is onbekend", ex.getMessage());
         }
     }
@@ -287,123 +300,187 @@ public class BankTest {
     @Category(BankNaarBalieCat.class)
     public void testDoeTransactie() {
 
-        //setup
-        int klantnr1 = 0;
-        int klantnr2 = 0;
-        String rekeningVan1 = null;
-        String rekeningVan2 = null;
+        //create transaction with an unknown customer number or combination
         try {
-            klantnr1 = bankNaarBalie.registreerKlant("Bertus", "Weert");
-            klantnr2 = bankNaarBalie.registreerKlant("Bertus", "Venlo");
-            rekeningVan1 = bankNaarBalie.openRekening(klantnr1);
-            rekeningVan2 = bankNaarBalie.openRekening(klantnr2);
-        } catch (RemoteException ex) {
-            fail("Initialization of test failed");
-        }
-
-        //create transaction with an unknown customer number
-        try {
-            bankNaarBalie.doeTransactie(Integer.MAX_VALUE, rekeningVan1, "INGB1234", 100, "test");
+            expect(database.getRekening("RABO1")).andReturn(new Rekening(100, "RABO1", 1234));
+            expect(database.getRekening("INGB1")).andReturn(null);
+            replay(database);
+            bankNaarBalie.doeTransactie(9999, "RABO1", "INGB1", 100, "test");
             fail("transaction created with an invalid customer number");
         } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("Rekeningnummer is onbekend", ex.getMessage());
         }
 
         //create transaction with an unknown sending account number
         try {
-            bankNaarBalie.doeTransactie(klantnr1, "DITISONGELDIG", "INGB1234", 100, "test");
+            expect(database.getRekening("GEENREK")).andReturn(null);
+            expect(database.getRekening("INGB1")).andReturn(null);
+            replay(database);
+            bankNaarBalie.doeTransactie(1234, "GEENREK", "INGB1", 100, "test");
             fail("transaction created with an invalid account number");
         } catch (RemoteException ex) {
-            Assert.assertEquals("Rekeningnummer is onbekend", ex.getMessage());
-        }
-
-        //create transaction with an invalid customer/account combination
-        try {
-            bankNaarBalie.doeTransactie(klantnr1, rekeningVan2, "INGB1234", 100, "test");
-            fail("transaction created with an invalid customer/account combination");
-        } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("Rekeningnummer is onbekend", ex.getMessage());
         }
 
         //create transaction with an invalid (negative) amount
         try {
-            bankNaarBalie.doeTransactie(klantnr1, rekeningVan1, "INGB1234", -100, "test");
+            expect(database.getRekening("RABO1")).andReturn(new Rekening(100, "RABO1", 1234));
+            expect(database.getRekening("INGB1")).andReturn(null);
+            replay(database);
+            bankNaarBalie.doeTransactie(1234, "RABO1", "INGB1", -100, "test");
             fail("transaction created with an invalid (negative) amount");
         } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("Bedrag wordt niet geaccepteerd", ex.getMessage());
         }
-        
+
         //create transaction with an invalid (to high) amount
         try {
-            bankNaarBalie.doeTransactie(klantnr1, rekeningVan1, "INGB1234", 10000001, "test");
+            expect(database.getRekening("RABO1")).andReturn(new Rekening(100, "RABO1", 1234));
+            expect(database.getRekening("INGB1")).andReturn(null);
+            replay(database);
+            bankNaarBalie.doeTransactie(1234, "RABO1", "INGB1", 10000001, "test");
             fail("transaction created with an invalid (to high) amount");
         } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("Bedrag wordt niet geaccepteerd", ex.getMessage());
         }
-        
+
         //create transaction from/to the same account
         try {
-            bankNaarBalie.doeTransactie(klantnr1, rekeningVan1, rekeningVan1, 100, "test");
+            expect(database.getRekening("RABO1"))
+                    .andReturn(new Rekening(100, "RABO1", 1234)).times(2);
+            replay(database);
+            bankNaarBalie.doeTransactie(1234, "RABO1", "RABO1", 100, "test");
             fail("transaction created with same from/to account");
         } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("U kunt niet overboeken naar uw eigen rekening", ex.getMessage());
         }
 
         //create transaction with unknown receiving account from this bank
         try {
-            bankNaarBalie.doeTransactie(klantnr1, rekeningVan1, "Rabo1234", 100, "test");
+            expect(database.getRekening("RABO1")).andReturn(new Rekening(100, "RABO1", 1234));
+            expect(database.getRekening("RABO2")).andReturn(null);
+            replay(database);
+            bankNaarBalie.doeTransactie(1234, "RABO1", "RABO2", 100, "test");
             fail("transaction created with invalid receiving account from this bank");
         } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("De tegenrekening is binnen onze bank niet bekend", ex.getMessage());
         }
 
-        //create transaction with insufficient balance (10000 is start balance)
+        //create transaction with insufficient balance
         try {
-            bankNaarBalie.doeTransactie(klantnr1, rekeningVan1, "INGB1234", 10001, "test");
+            expect(database.getRekening("RABO1")).andReturn(new Rekening(100, "RABO1", 1234));
+            expect(database.getRekening("INGB1")).andReturn(null);
+            replay(database);
+            bankNaarBalie.doeTransactie(1234, "RABO1", "INGB1", 101, "test");
             fail("transaction created with insufficient balance");
         } catch (RemoteException ex) {
+            verify(database);
+            reset(database);
             Assert.assertEquals("Saldo niet toereikend", ex.getMessage());
         }
 
-        //create valid transaction
+        //create valid transaction to internal account
         try {
-            Assert.assertTrue(bankNaarBalie.doeTransactie(
-                    klantnr2, rekeningVan2, "INGB1234", 10000, "test"));
+            Rekening rekVan = new Rekening(100, "RABO1", 1234);
+            Rekening rekNaar = new Rekening(100, "RABO2", 4321);
+            expect(database.getRekening("RABO1")).andReturn(rekVan);
+            expect(database.getRekening("RABO2")).andReturn(rekNaar);
+            database.updateRekening(rekVan);
+            expectLastCall();
+            database.updateRekening(rekNaar);
+            expectLastCall();
+            Transactie t = new Transactie("1", new Date(), "RABO1", "RABO2", "test", 100);
+            expect(database.getTransactie("RABO1", "RABO2", 100, "test", Transactie.Status.DONE))
+                    .andReturn(t);
+            database.insertTransactie(t);
+            expectLastCall();
+            balie.updateView(rekVan.getKlantNr(), t);
+            expectLastCall();
+            balie.updateView(rekNaar.getKlantNr(), t);
+            expectLastCall();
+            replay(database);
+            replay(balie);
+            assertTrue(bankNaarBalie.doeTransactie(1234, "RABO1", "RABO2", 100, "test"));
+            verify(database);
+            reset(database);
+            verify(balie);
+            reset(balie);
+        } catch (RemoteException ex) {
+            fail("Transaction should be valid");
+        }
+
+        //create valid transaction to external account
+        try {
+            Rekening rekVan = new Rekening(100, "RABO1", 1234);
+            expect(database.getRekening("RABO1")).andReturn(rekVan);
+            expect(database.getRekening("INGB1")).andReturn(null);
+            database.updateRekening(rekVan);
+            expectLastCall();
+            Transactie t = new Transactie("1", new Date(), "RABO1", "RABO2", "test", 100);
+            expect(database.getTransactie("RABO1", "INGB1", 100, "test", Transactie.Status.PENDING))
+                    .andReturn(t);
+            database.insertTransactie(t);
+            expectLastCall();
+            balie.updateView(rekVan.getKlantNr(), t);
+            expectLastCall();
+            replay(database);
+            replay(balie);
+            assertTrue(bankNaarBalie.doeTransactie(1234, "RABO1", "INGB1", 100, "test"));
+            verify(database);
+            verify(balie);
         } catch (RemoteException ex) {
             fail("Transaction should be valid");
         }
     }
 
-
-    
-    
-//    
-//    
-//    //BANKNAARCENTRALe
-//        /**
-//     * Deze methode verzoekt om verwerking van transactie t van bank A naar bank
-//     * B
-//     *
-//     * @param t de transactie
-//     * @throws java.rmi.RemoteException
-//     */
-//    void verwerk(Transactie t) throws RemoteException;
-//    
     /**
-     * Registreert het IBankNaarBalie object op een aangegeven poort.
+     * Test of verwerk method, of private class BankNaarCentrale.
      *
-     * <br>Pre: poort is nog niet in gebruik.
-     * <br>Post: IBankNaarBalie is op poort geregistreerd.
-     *
-     * @param port poort waarop IBankNaarBalie object op geregistreerd wordt
+     * <br>Check that a transaction will be inserted or updated in database.
      */
-//    private void registreer(int port) {
-//
-    //create mock
-//        ICentraleNaarBank centraleBank = createNiceMock(ICentraleNaarBank.class);
-//        
-//        // setup the mock object
-//        expect(centraleBank)
-//expect(calcMethod.calc(Position.BOSS)).andReturn(70000.0).times(2);
-//    }
+    @Test
+    @Category(BankNaarCentraleCat.class)
+    public void testVerwerk() {
+        
+        //receive already present transaction
+        try{
+            Transactie t = new Transactie("1",new Date(),"RABO1","INGB1","",100);
+            expect(database.getTransactie(t.getTransactieNr())).andReturn(t);
+            database.updateTransactie(t);
+            expectLastCall();
+            replay(database);
+            bankNaarCentrale.verwerk(t);
+            verify(database);
+            reset(database);
+        } catch(RemoteException ex){
+            fail("Unexpected exception thrown when receiving a transaction");
+        }
+        
+        //receive new transaction
+        try{
+            Transactie t = new Transactie("1",new Date(),"RABO1","INGB1","",100);
+            expect(database.getTransactie(t.getTransactieNr())).andReturn(null);
+            database.insertTransactie(t);
+            expectLastCall();
+            replay(database);
+            bankNaarCentrale.verwerk(t);
+            verify(database);
+            reset(database);
+        } catch(RemoteException ex){
+            fail("Unexpected exception thrown when receiving a transaction");
+        }
+        
+    }
 }
