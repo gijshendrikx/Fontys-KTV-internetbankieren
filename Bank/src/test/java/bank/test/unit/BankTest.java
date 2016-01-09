@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package bank.test;
+package bank.test.unit;
 
 import bank.Bank;
 import bank.Klant;
@@ -55,9 +55,6 @@ public class BankTest {
     private final IDatabaseConnectie database = mock(IDatabaseConnectie.class);
     private final IBalieObserver balie = mock(IBalieObserver.class);
 
-    public BankTest() {
-    }
-
     @BeforeClass
     public static void setUpClass() {
     }
@@ -83,8 +80,6 @@ public class BankTest {
     @After
     public void tearDown() {
     }
-
-    //SETSCHEDULER???
     
     /**
      * Test of registreer method, of class Bank

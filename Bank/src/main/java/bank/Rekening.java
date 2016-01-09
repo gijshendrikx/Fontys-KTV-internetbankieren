@@ -43,6 +43,13 @@ public class Rekening {
         kredietlimiet = limiet;
     }
 
+    /**
+     * geeft aan of een bedrag van de rekening afgeschreven kan worden zonder 
+     * het kredietlimiet te overschrijven.
+     * 
+     * @param bedrag bedrag wat voor afschrijving gecontroleerd wordt
+     * @return 
+     */
     public boolean kanAfboeken(int bedrag) {
         return saldo + kredietlimiet >= bedrag;
     }
