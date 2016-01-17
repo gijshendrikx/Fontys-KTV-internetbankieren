@@ -57,16 +57,20 @@ public class IntegrationTest {
     }
 
     /**
-     * Test of kanAfboeken method, of class Rekening.
+     * Test of transcations flow.
      *
-     * <br>Check if true/false is returned corresponding to the amount to be
-     * written off and the maximal amount possible to write off
+     * <br>Check that a transcation to a non-existing bank will return a 
+     * cancelled transaction
+     * <br>Check that a transaction to an existing bank / non existing account
+     * will return a cancelled transaction
+     * <br>Check that a transaction to an existing bank / existing account will
+     * return an accepted transaction
      */
     @Test
     @Category(IntegrationCat.class)
     public void testOverboeken() {
 
-        //overboeken naar niet bestaande bank
+        //transfer to non-existing bank
         try {
             String transOmschrijving = "testfoutbank";
             bankRabo.getBankNaarBalie().doeTransactie(
@@ -95,7 +99,7 @@ public class IntegrationTest {
             fail("InterruptedException on sleep");
         }
 
-        //overboeken naar bestaande bank / niet bestaande rekening
+        //transfer to existing bank / non-existing account
         try {
             String transOmschrijving = "testfoutrek";
             bankRabo.getBankNaarBalie().doeTransactie(
@@ -124,13 +128,13 @@ public class IntegrationTest {
             fail("InterruptedException on sleep");
         }
 
-        //overboeken naar bestaande bank / rekening
+        //transfer to existing bank / account
         try {
             String transOmschrijving = "testcorrect";
             bankRabo.getBankNaarBalie().doeTransactie(
                     klantRabo, rekRabo, rekING, 100, transOmschrijving);
             //wait for CentraleBank to receive/process transaction
-            Thread.sleep(30000);
+            Thread.sleep(60000);
 
             //check that transcation was processed/returned
             Collection<Transactie> transacties = bankRabo.getBankNaarBalie()
